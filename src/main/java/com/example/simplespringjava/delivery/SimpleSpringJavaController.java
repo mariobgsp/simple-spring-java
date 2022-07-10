@@ -9,11 +9,12 @@ import com.example.simplespringjava.model.Response;
 import com.example.simplespringjava.model.test.ResponseData;
 import com.example.simplespringjava.model.test.ResponseInfo;
 import com.example.simplespringjava.model.weather.WeatherData;
+import com.example.simplespringjava.usecase.SimpleUsecase;
 import com.example.simplespringjava.utils.CommonUtils;
 import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Type;
@@ -21,14 +22,15 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/demo/api")
 @Slf4j
 public class SimpleSpringJavaController {
 
-//    @Autowired
-//    DataSample dataSample;
+    @Autowired
+    SimpleUsecase simpleUsecase;
 
     @GetMapping("/test/{name}")
     public ResponseEntity<?> get(@PathVariable("name") String name){
@@ -43,8 +45,9 @@ public class SimpleSpringJavaController {
     }
 
     @GetMapping("/request-weather-forecast")
-    public ResponseEntity<?> getWeatherForecast(@RequestHeader(value = "ax-request-id") String requestId
-            , @RequestHeader(value = "channel", defaultValue = "W") String channel
+    public ResponseEntity<?> getWeatherForecast(
+            @RequestHeader(value = "X-Request-Id") String requestId
+            , @RequestHeader(value = "X-Channel", defaultValue = "W") String channel
             , @RequestParam(value = "city_name") String cityName){
 
         String requestFrom = "";
@@ -85,6 +88,40 @@ public class SimpleSpringJavaController {
         log.info("[Request End - city name: {}][requestFrom: {}][requestId: {}][response: {}]", cityName, requestFrom, requestId,generalResponse.getResponse());
         return new ResponseEntity<>(generalResponse,generalResponse.getHttpStatus());
     }
+
+    @GetMapping("/request-quotes")
+    public ResponseEntity<?> getQuotes(
+            @RequestHeader(value = "X-Channel", defaultValue = "W", required = false) String channel,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId,
+            @RequestParam(value = "category") String category){
+        if(requestId==null){
+            requestId = AppConstant.APP_NAME+"-"+UUID.randomUUID();
+        }
+        /* initiate payload response */
+        GeneralResponse<Object> generalResponse = simpleUsecase.getQuotes(category);
+        /* set request id & request at */
+        generalResponse.setRequestAt(getCurrentTime());
+        generalResponse.setRequestId(requestId);
+        return new ResponseEntity<>(generalResponse,generalResponse.getHttpStatus());
+    }
+
+    @GetMapping("/request-for-today")
+    public ResponseEntity<?> getToday(
+            @RequestHeader(value = "X-Channel", defaultValue = "W", required = false) String channel,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "category") String category){
+        if(requestId==null){
+            requestId = AppConstant.APP_NAME+"-"+UUID.randomUUID();
+        }
+        /* initiate payload response */
+        GeneralResponse<Object> generalResponse = simpleUsecase.getMessage(name, category);
+        /* set request id & request at */
+        generalResponse.setRequestAt(getCurrentTime());
+        generalResponse.setRequestId(requestId);
+        return new ResponseEntity<>(generalResponse,generalResponse.getHttpStatus());
+    }
+
 
     public WeatherData getWeatherData(String city) throws NotFound {
         Type typeOfT = new TypeToken<List<WeatherData>>() {}.getType();
